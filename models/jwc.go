@@ -440,6 +440,7 @@ func AES_CBC_Encrypt(plainText []byte, key []byte) string {
 
 //教务系统登录
 func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
+	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
 	//获取cookie
 	var client http.Client
 	jar, err := cookiejar.New(nil)
@@ -458,7 +459,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	//beego.Info(string(body1))
 	doc, err := goquery.NewDocumentFromReader(response.Body)
 	//beego.Info(doc.Find("#pwdEncryptSalt").AttrOr("value", ""))
-	encoedepwd := AES_CBC_Encrypt([]byte(user.Pwd), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
+	encoedepwd := AES_CBC_Encrypt([]byte(password), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
 
 	//beego.Info(doc.Find("#execution").AttrOr("value", ""))
 	reqData := url.Values{
