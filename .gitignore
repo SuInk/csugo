@@ -2,4 +2,4 @@
 *.db
 .idea
 *.out
-.tmp
+*.tmp
