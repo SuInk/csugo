@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/csuhan/csugo/utils"
 	"net/http"
@@ -29,7 +28,6 @@ func (this *Bus) Search(Start, End, Time string) ([]Bus, error) {
 	}
 	req, err := http.NewRequest("POST", BUS_SEARCH_URL, strings.NewReader(reqData.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	fmt.Println(len(reqData.Encode()))
 	response, err := http.DefaultClient.Do(req)
 	//rep, _ := ioutil.ReadAll(response.Body)
 	//fmt.Println(string(rep))
