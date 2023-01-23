@@ -65,7 +65,7 @@ type Weeklist struct {
 
 type Jwc struct{}
 
-//成绩查询
+// 成绩查询
 func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 	//登录系统
 	cookies, err := this.Login(user)
@@ -109,7 +109,7 @@ func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 	return Grades, nil
 }
 
-//专业排名查询
+// 专业排名查询
 func (this *Jwc) Rank(user *JwcUser) ([]Rank, error) {
 	//登录系统
 	cookies, err := this.Login(user)
@@ -163,7 +163,7 @@ func (this *Jwc) Rank(user *JwcUser) ([]Rank, error) {
 	return ranks, err
 }
 
-//课表查询
+// 课表查询
 func (this *Jwc) Class(user *JwcUser, Week, Term string) ([][]Class, string, error) {
 	if Week == "0" {
 		Week = ""
@@ -224,7 +224,7 @@ func (this *Jwc) Class(user *JwcUser, Week, Term string) ([][]Class, string, err
 	return classes, startWeekDay, nil
 }
 
-//考试查询
+// 考试查询
 func (this *Jwc) Exam(user *JwcUser) ([]Exam, error) {
 	//登录系统
 	cookies, err := this.Login(user)
@@ -283,7 +283,7 @@ func (this *Jwc) Exam(user *JwcUser) ([]Exam, error) {
 	return ret, err
 }
 
-//教学周历查询
+// 教学周历查询
 func (this *Jwc) WeekList(user *JwcUser, Term string) ([]Weeklist, error) {
 	body := strings.NewReader("zc=" + url.QueryEscape("") + "&xnxq01id=" + url.QueryEscape(Term) + "&sfFD=1")
 	//登录系统
@@ -377,7 +377,7 @@ func Standard4_1(grade string) float64 {
 	return GPA
 }
 
-//登录后请求
+// 登录后请求
 func (this *Jwc) LogedRequest(user *JwcUser, Method, Url string, client http.Client, Params io.Reader) (*http.Response, error) {
 
 	//beego.Info(cookies)//打印cookies
@@ -394,7 +394,7 @@ func (this *Jwc) LogedRequest(user *JwcUser, Method, Url string, client http.Cli
 	return Cookiesreq, err
 }
 
-//随机字符串
+// 随机字符串
 func GetRandomString(n int) []byte {
 	str := "ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678"
 	bytes := []byte(str)
@@ -405,7 +405,7 @@ func GetRandomString(n int) []byte {
 	return result
 }
 
-//对明文进行填充
+// 对明文进行填充
 func Padding(plainText []byte, blockSize int) []byte {
 	//计算要填充的长度
 	n := blockSize - len(plainText)%blockSize
@@ -415,7 +415,7 @@ func Padding(plainText []byte, blockSize int) []byte {
 	return plainText
 }
 
-//AEC加密（CBC模式）
+// AEC加密（CBC模式）
 func AES_CBC_Encrypt(plainText []byte, key []byte) string {
 	//指定加密算法，返回一个AES算法的Block接口对象
 	block, err := aes.NewCipher(key)
@@ -438,7 +438,7 @@ func AES_CBC_Encrypt(plainText []byte, key []byte) string {
 	return base64.StdEncoding.EncodeToString(cipherText)
 }
 
-//教务系统登录
+// 教务系统登录
 func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
 	//获取cookie
@@ -452,8 +452,8 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	// req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
 	response, err := client.Do(req)
 	//response, err := http.Get(JWC_UNIFIED_URL)
-	if err != nil {
-		return client, utils.ERROR_SERVER
+	if err != nil || response.StatusCode != 200 {
+		return client, utils.ERROR_UNIFIED
 	}
 	//body1, _ := ioutil.ReadAll(response.Body)
 	//beego.Info(string(body1))
@@ -480,8 +480,8 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	// req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
 	response1, err := client.Do(req)
 	//beego.Info(response1.Cookies())
-	if err != nil {
-		return client, utils.ERROR_SERVER
+	if err != nil || response1.StatusCode != 200 {
+		return client, utils.ERROR_JWC
 	}
 	body, _ := ioutil.ReadAll(response1.Body)
 	defer response.Body.Close()
