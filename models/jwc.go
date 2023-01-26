@@ -449,7 +449,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	}
 	client.Jar = jar
 	req, _ := http.NewRequest("GET", JWC_UNIFIED_URL, nil)
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
+	// req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
 	response, err := client.Do(req)
 	//response, err := http.Get(JWC_UNIFIED_URL)
 	if err != nil || response.StatusCode != 200 {
@@ -474,21 +474,26 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 		"execution":  {doc.Find("#execution").AttrOr("value", "")},
 	}
 	//beego.Info(reqData)
-
+	
 	req, _ = http.NewRequest("POST", JWC_UNIFIED_URL, strings.NewReader(reqData.Encode()))
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
 	response1, err := client.Do(req)
 	//beego.Info(response1.Cookies())
+	
+	body, _ := ioutil.ReadAll(response1.Body)
+	//账号或密码错误
+	if strings.Contains(string(body), "中南e行APP扫码登录") && response.StatusCode != 200 {
+		return client, utils.ERROR_ID_PWD
+	}
 	if err != nil || response1.StatusCode != 200 {
 		return client, utils.ERROR_JWC
 	}
-	body, _ := ioutil.ReadAll(response1.Body)
 	defer response.Body.Close()
 	//登陆成功
 	if strings.Contains(string(body), "我的桌面") {
 		return client, nil
 	}
-	//账号或密码错误
-	return client, utils.ERROR_ID_PWD
+	//教务系统错误
+	return client, utils.ERROR_JWC
 }
