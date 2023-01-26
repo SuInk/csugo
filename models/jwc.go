@@ -483,7 +483,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	
 	body, _ := ioutil.ReadAll(response1.Body)
 	//账号或密码错误
-	if strings.Contains(string(body), "中南e行APP扫码登录") && response.StatusCode != 200 {
+	if strings.Contains(string(body), "中南e行APP扫码登录") {
 		return client, utils.ERROR_ID_PWD
 	}
 	if err != nil || response1.StatusCode != 200 {
