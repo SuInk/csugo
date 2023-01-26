@@ -71,9 +71,13 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 	singleSel := doc.FindMatcher(goquery.Single("script#__NEXT_DATA__"))
 	// beego.Info(singleSel.Text())
 	err = json.Unmarshal([]byte(singleSel.Text()), &rawJson)
+	// beego.Info(rawJson)
 	if err != nil {
 		beego.Info(err)
 		return StudentList{}, err
+	}
+	if rawJson.Props.PageProps.Data[0] == nil && rawJson.Props.PageProps.Data[1] == nil {
+		return StudentList{}, utils.ERROR_STUDENT_NOT_FOUND
 	}
 	// 学生
 	for _, item := range rawJson.Props.PageProps.Data[0] {
