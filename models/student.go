@@ -49,8 +49,9 @@ type Student struct {
 }
 
 type StudentList struct {
-	ID, Name, TotalNum string
-	Students           []Student
+	ID, Name string
+	TotalNum int
+	Students []Student
 }
 
 func GetStudentInfo(StudentID string) (StudentList, error) {
@@ -76,7 +77,7 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 		beego.Info(err)
 		return StudentList{}, err
 	}
-	if rawJson.Props.PageProps.Data[0] == nil && rawJson.Props.PageProps.Data[1] == nil {
+	if rawJson.Props.PageProps.Data == nil {
 		return StudentList{}, utils.ERROR_STUDENT_NOT_FOUND
 	}
 	// 学生
@@ -99,7 +100,7 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 	}
 	students.ID = StudentID
 	students.Name = rawJson.Props.PageProps.Name
-	students.TotalNum = string(len(students.Students))
+	students.TotalNum = len(students.Students)
 
 	return students, nil
 }
