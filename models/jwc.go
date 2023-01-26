@@ -477,7 +477,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 
 	req, _ = http.NewRequest("POST", JWC_UNIFIED_URL, strings.NewReader(reqData.Encode()))
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
-	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
 	response1, err := client.Do(req)
 	//beego.Info(response1.Cookies())
 	if err != nil || response1.StatusCode != 200 {

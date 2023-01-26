@@ -13,12 +13,7 @@ type StudentController struct {
 func (this *StudentController) GetStudentInfo() {
 	pageid := this.Ctx.Input.Param(":id")
 
-	students, err := models.GetMulStudentInfo(pageid)
-	if students.TotalNum == "" {
-
-		students, err = models.GetSinStudentInfo(pageid)
-
-	}
+	students, err := models.GetStudentInfo(pageid)
 	stateCode := 1
 	errorstr := ""
 	if err != nil {
@@ -28,7 +23,7 @@ func (this *StudentController) GetStudentInfo() {
 	this.Data["json"] = struct {
 		StateCode int
 		Error     string
-		Students      models.StudentList
+		Students  models.StudentList
 	}{
 		StateCode: stateCode,
 		Error:     errorstr,
@@ -36,4 +31,3 @@ func (this *StudentController) GetStudentInfo() {
 	}
 	this.ServeJSON()
 }
-

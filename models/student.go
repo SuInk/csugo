@@ -1,116 +1,96 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/httplib"
 	"github.com/csuhan/csugo/utils"
-	"regexp"
+	"io"
+	"net/http"
 	"strings"
 )
 
-const EVERYCLASS_URL = "https://everyclass.xyz/query?id="
+// CHEER_TIMETABLE_URL 琦课 网址: https://cheer-timetable.vercel.app/
+const CHEER_TIMETABLE_URL = "http://47.114.89.18:3000/search/"
 
+type RawJson struct {
+	Props struct {
+		PageProps struct {
+			Name string `json:"name"`
+			Data [][]struct {
+				Id             string      `json:"id"`
+				Seq            json.Number `json:"seq"`
+				Grade          string      `json:"grade"`
+				Name           string      `json:"name"`
+				Faculty        string      `json:"facultyName"`
+				ProfessionName string      `json:"professionName"`
+				ClassName      string      `json:"className"`
+				Sex            string      `json:"sex"`
+				CreatedAt      string      `json:"createdAt"`
+				UpdatedAt      string      `json:"updatedAt"`
+			} `json:"data"`
+		} `json:"pageProps"`
+		__N_SSG bool `json:"__N_SSG"`
+	} `json:"props"`
+	Page  string `json:"page"`
+	Query struct {
+		Name string `json:"name"`
+	} `json:"query"`
+	BuildId      string   `json:"buildId"`
+	IsFallback   bool     `json:"isFallback"`
+	Gsp          bool     `json:"gsp"`
+	ScriptLoader []string `json:"scriptLoader"`
+}
 type Student struct {
-	Name, Deputy, School, Class string
+	Name,
+	Deputy,
+	School,
+	Class string
 }
 
 type StudentList struct {
 	ID, Name, TotalNum string
-	Students     []Student
+	Students           []Student
 }
 
-
-func GetMulStudentInfo(StudentID string) (StudentList, error) {
-	req := httplib.Post(EVERYCLASS_URL + StudentID)
-
-	resp, err := req.String()
+func GetStudentInfo(StudentID string) (StudentList, error) {
+	resp, err := http.Get(CHEER_TIMETABLE_URL + StudentID)
 	if err != nil {
 		return StudentList{}, utils.ERROR_SERVER
 	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	// beego.Info(string(body))
 	students := StudentList{}
-	//查找总页数,总信息数
-	re := regexp.MustCompile("中南那么大，居然有(.*)个(.*)！</h1> ")
-	res := re.FindStringSubmatch(resp)
-	students.ID = StudentID
-	if len(res) != 0 {
-		students.TotalNum = res[1]
-		students.Name = res[2]
-	}
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp))
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		return StudentList{}, utils.ERROR_SERVER
 	}
-	studentItems := []Student{}
-	//查找每个tr
-	doc.Find("tbody tr").Each(func(i int, s *goquery.Selection) {
-		tds := s.Find("td")
-		//temp := tds.Find("a").AttrOr("onclick", "")
-		//link := regexp.MustCompile(`/Home/Release_TZTG_zd/(.*)', '', 'left=0`).FindStringSubmatch(temp)[1]
-		studentItems = append(studentItems, Student{
-			Name:       strings.Trim(tds.Eq(0).Text(), "\n "),
-			Deputy:     strings.Trim(tds.Eq(1).Text(), "\n "),
-			School:      strings.Trim(tds.Eq(2).Text(), "\n "),
-			Class: strings.Trim(tds.Eq(3).Text(), "\n "),
-			//Time:      strings.Trim(tds.Eq(6).Text(), "\n "),
-			//Link:      link,
-		})
-	})
-	students.Students = studentItems
+	var rawJson RawJson
+	// Using goquery.Single, only the first match is selected
+	singleSel := doc.FindMatcher(goquery.Single("script#__NEXT_DATA__"))
+	beego.Info(singleSel.Text())
+	err = json.Unmarshal([]byte(singleSel.Text()), &rawJson)
+	if err != nil {
+		beego.Info(err)
+		return StudentList{}, err
+	}
+
+	for _, item := range rawJson.Props.PageProps.Data[0] {
+		var student Student
+		student.Name = item.Name
+		student.Deputy = "学生"
+		student.School = item.Faculty
+		student.Class = item.ClassName
+		students.Students = append(students.Students, student)
+	}
+	for _, item := range rawJson.Props.PageProps.Data[1] {
+		var teacher Student
+		teacher.Name = item.Name
+		teacher.Deputy = "教师"
+		teacher.School = item.Faculty
+		teacher.Class = item.Faculty
+		students.Students = append(students.Students, teacher)
+	}
 	return students, nil
 }
-
-func GetSinStudentInfo(StudentID string) (StudentList, error) {
-	req := httplib.Post(EVERYCLASS_URL + StudentID)
-
-	resp, err := req.String()
-	if err != nil {
-		return StudentList{}, utils.ERROR_SERVER
-	}
-	students := StudentList{}
-	//查找总页数,总信息数
-	re := regexp.MustCompile("<h1 class=hero-header>(.*)</h1> ")
-	res := re.FindStringSubmatch(resp)
-	students.ID = StudentID
-	students.TotalNum = "1"
-	if len(res) != 0 {
-		students.Name = res[1]
-	}
-	re2 := regexp.MustCompile("- (.*) - 每课")
-	res2 := re2.FindStringSubmatch(resp)
-	beego.Info(res2)
-	students.ID = StudentID
-	students.TotalNum = "1"
-	if res2 == nil {
-		res2 = append(res2, "0","查无此人")
-		students.TotalNum = "0"
-		return StudentList{}, utils.ERROR_NO_STUDENT
-	}
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp))
-	if err != nil {
-		return StudentList{}, utils.ERROR_SERVER
-	}
-	studentItems := []Student{}
-	//查找每个tr
-	doc.Find("div").Each(func(i int, s *goquery.Selection) {
-		h1s := s.Find("h1")
-		h4s := s.Find("h4")
-		//temp := tds.Find("a").AttrOr("onclick", "")
-		//link := regexp.MustCompile(`/Home/Release_TZTG_zd/(.*)', '', 'left=0`).FindStringSubmatch(temp)[1]
-		studentItems = append(studentItems, Student{
-			Name:       strings.Trim(h1s.Eq(0).Text(), "\n "),
-			Deputy:     strings.Trim(res2[1], "\n "),
-			School:      strings.Trim(h4s.Eq(0).Text(), "\n "),
-			Class: "",
-			//Time:      strings.Trim(jwc/8212190323/jwc456258/gradetds.Eq(6).Text(), "\n "),
-			//Link:      link,
-		})
-		//对数组切片，取第一个元素
-		studentItems = studentItems[:1]
-	})
-	students.Students = studentItems
-	return students, err
-}
-
-
