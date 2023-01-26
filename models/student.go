@@ -69,13 +69,13 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 	var rawJson RawJson
 	// Using goquery.Single, only the first match is selected
 	singleSel := doc.FindMatcher(goquery.Single("script#__NEXT_DATA__"))
-	beego.Info(singleSel.Text())
+	// beego.Info(singleSel.Text())
 	err = json.Unmarshal([]byte(singleSel.Text()), &rawJson)
 	if err != nil {
 		beego.Info(err)
 		return StudentList{}, err
 	}
-
+	// 学生
 	for _, item := range rawJson.Props.PageProps.Data[0] {
 		var student Student
 		student.Name = item.Name
@@ -84,6 +84,7 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 		student.Class = item.ClassName
 		students.Students = append(students.Students, student)
 	}
+	// 教师
 	for _, item := range rawJson.Props.PageProps.Data[1] {
 		var teacher Student
 		teacher.Name = item.Name
@@ -92,5 +93,9 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 		teacher.Class = item.Faculty
 		students.Students = append(students.Students, teacher)
 	}
+	students.ID = StudentID
+	students.Name = rawJson.Props.PageProps.Name
+	students.TotalNum = string(len(students.Students))
+
 	return students, nil
 }
