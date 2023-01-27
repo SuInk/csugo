@@ -13,6 +13,21 @@ import (
 // CHEER_TIMETABLE_URL 琦课 网址: https://cheer-timetable.vercel.app/
 const CHEER_TIMETABLE_URL = "http://47.114.89.18:3000/search/"
 
+type TrueJson struct {
+	PageProps struct {
+		Name string `json:"name"`
+		Data [][]struct {
+			Id             string      `json:"id"`
+			Seq            json.Number `json:"seq"`
+			Grade          string      `json:"grade"`
+			Name           string      `json:"name"`
+			Faculty        string      `json:"facultyName"`
+			ProfessionName string      `json:"professionName"`
+			ClassName      string      `json:"className"`
+		} `json:"data"`
+	} `json:"pageProps"`
+	__N_SSG bool `json:"__N_SSG"`
+}
 type RawJson struct {
 	Props struct {
 		PageProps struct {
@@ -72,16 +87,25 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 	singleSel := doc.FindMatcher(goquery.Single("script#__NEXT_DATA__"))
 	// beego.Info(singleSel.Text())
 	err = json.Unmarshal([]byte(singleSel.Text()), &rawJson)
+	resp2, err := http.Get("http://47.114.89.18:3000/_next/data/" + rawJson.BuildId + "/search/" + StudentID + ".json")
+	if err != nil {
+		return StudentList{}, utils.ERROR_SERVER
+	}
+	defer resp2.Body.Close()
+	var trueJson TrueJson
+	body2, err := io.ReadAll(resp2.Body)
+
+	json.Unmarshal(body2, &trueJson)
 	// beego.Info(rawJson)
 	if err != nil {
 		beego.Info(err)
 		return StudentList{}, err
 	}
-	if rawJson.Props.PageProps.Data == nil {
+	if trueJson.PageProps.Data == nil {
 		return StudentList{}, utils.ERROR_STUDENT_NOT_FOUND
 	}
 	// 学生
-	for _, item := range rawJson.Props.PageProps.Data[0] {
+	for _, item := range trueJson.PageProps.Data[0] {
 		var student Student
 		student.Name = item.Name
 		student.Deputy = "学生"
@@ -90,7 +114,7 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 		students.Students = append(students.Students, student)
 	}
 	// 教师
-	for _, item := range rawJson.Props.PageProps.Data[1] {
+	for _, item := range trueJson.PageProps.Data[1] {
 		var teacher Student
 		teacher.Name = item.Name
 		teacher.Deputy = "教师"
@@ -99,7 +123,7 @@ func GetStudentInfo(StudentID string) (StudentList, error) {
 		students.Students = append(students.Students, teacher)
 	}
 	students.ID = StudentID
-	students.Name = rawJson.Props.PageProps.Name
+	students.Name = trueJson.PageProps.Name
 	students.TotalNum = len(students.Students)
 
 	return students, nil
