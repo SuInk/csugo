@@ -9,6 +9,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/csuhan/csugo/utils"
 	"io"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -480,15 +481,19 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	req.Header.Set("User-Agent", "csulite robot v1.0")
 	response1, err := client.Do(req)
 	//beego.Info(response1.Cookies())
+	body, _ := ioutil.ReadAll(response1.Body)
+	if strings.Contains(string(body), "中南e行APP扫码登录") && response1.StatusCode != 200 {
+		err := fmt.Errorf("%d\n%w", response1.StatusCode, utils.ERROR_ID_PWD)
+		return client, err
+	}
 	if err != nil || response1.StatusCode != 200 {
 		return client, utils.ERROR_JWC
 	}
-	body, _ := ioutil.ReadAll(response1.Body)
 	defer response.Body.Close()
 	//登陆成功
 	if strings.Contains(string(body), "我的桌面") {
 		return client, nil
 	}
 	//账号或密码错误
-	return client, utils.ERROR_ID_PWD
+	return client, utils.ERROR_JWC
 }
