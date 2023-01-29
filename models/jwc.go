@@ -5,18 +5,20 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
+	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego"
 	"github.com/csuhan/csugo/utils"
 	"io"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const JWC_UNIFIED_URL = "https://ca.csu.edu.cn/authserver/login?service=http%3A%2F%2Fcsujwc.its.csu.edu.cn%2Fsso.jsp"
@@ -460,13 +462,26 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	//beego.Info(string(body1))
 	doc, err := goquery.NewDocumentFromReader(response.Body)
 	//beego.Info(doc.Find("#pwdEncryptSalt").AttrOr("value", ""))
-	encoedepwd := AES_CBC_Encrypt([]byte(password), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
-
-	//beego.Info(doc.Find("#execution").AttrOr("value", ""))
+	encodePwd := AES_CBC_Encrypt([]byte(password), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
+	// 验证码识别
+	captcha := "None"
+	respIsNeed, err := client.Get(fmt.Sprintf("https://ca.csu.edu.cn/authserver/checkNeedCaptcha.htl?username=%s&_=%s", user.Id, strconv.FormatInt(time.Now().UnixNano()/1e6, 10)))
+	if err != nil {
+		return client, err
+	}
+	body, _ := io.ReadAll(respIsNeed.Body)
+	if strings.Contains(string(body), "true") {
+		//需要验证码
+		log.Println(user.Id, "需要验证码")
+		captcha, err = utils.GetCaptcha(&client)
+		if err != nil {
+			return client, err
+		}
+	}
 	reqData := url.Values{
 		"username":   {user.Id},
-		"password":   {encoedepwd},
-		"captcha":    {"None"},
+		"password":   {encodePwd},
+		"captcha":    {captcha},
 		"rememberMe": {"True"},
 		"_eventId":   {"submit"},
 		"cllt":       {"userNameLogin"},
@@ -474,26 +489,35 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 		"lt":         {"None"},
 		"execution":  {doc.Find("#execution").AttrOr("value", "")},
 	}
-	//beego.Info(reqData)
-
-	req, _ = http.NewRequest("POST", JWC_UNIFIED_URL, strings.NewReader(reqData.Encode()))
-	req.Header.Add("content-type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "csulite robot v1.0")
-	response1, err := client.Do(req)
-	//beego.Info(response1.Cookies())
-	body, _ := ioutil.ReadAll(response1.Body)
-	if strings.Contains(string(body), "中南e行APP扫码登录") && response1.StatusCode != 200 {
-		err := fmt.Errorf("%d\n%w", response1.StatusCode, utils.ERROR_ID_PWD)
-		return client, err
+	response, err = client.Post(JWC_UNIFIED_URL, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
+	//body, _ = io.ReadAll(response.Body)
+	//log.Println(string(body))
+	// 统一认证错误处理
+	doc, err = goquery.NewDocumentFromReader(response.Body)
+	if err != nil {
+		return client, utils.ErrorServer
 	}
-	if err != nil || response1.StatusCode != 200 {
-		return client, utils.ERROR_JWC
+	if strings.Contains(doc.Text(), "中南e行APP扫码登录") && response.StatusCode != 200 {
+		switch doc.Find("span#showErrorTip").First().Text() {
+		case "验证码错误":
+			return client, utils.ErrorCaptcha
+		case "您提供的用户名或者密码有误":
+			return client, utils.ErrorIdPwd
+		case "输入多次密码错误账号冻结，5-10分钟自动解冻":
+			return client, utils.ErrorLocked
+		default:
+			return client, utils.ErrorFailLogin
+		}
+	}
+	if err != nil || response.StatusCode != 200 {
+		err := fmt.Errorf("%d%w", response.StatusCode, utils.ErrorJwc)
+		return client, err
 	}
 	defer response.Body.Close()
 	//登陆成功
-	if strings.Contains(string(body), "我的桌面") {
+	if strings.Contains(doc.Text(), "我的桌面") {
 		return client, nil
 	}
-	//账号或密码错误
-	return client, utils.ERROR_JWC
+	err = fmt.Errorf("%d%w", response.StatusCode, utils.ErrorJwc)
+	return client, err
 }
