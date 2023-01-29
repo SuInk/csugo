@@ -1,67 +1,92 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/httplib"
 	"github.com/csuhan/csugo/utils"
-	"regexp"
+	"io"
+	"net/http"
 	"strings"
 )
 
-const NEWSARTICLE_URL = "http://tz.its.csu.edu.cn/Home/Release_TZTG_zd/"
-const NEWSLIST_URL = "http://tz.its.csu.edu.cn/Home/Release_TZTG/"
+type NewsListJson struct {
+	Data []struct {
+		DJSJP  string `json:"DJSJP"`
+		JLNM   string `json:"JLNM"`
+		LLCS   int    `json:"LLCS"`
+		QCBMMC string `json:"QCBMMC"`
+		PXBM   int    `json:"PXBM"`
+		QCZHXM string `json:"QCZHXM"`
+		WN     int    `json:"WN"`
+		QCSJ   string `json:"QCSJ"`
+		WJBT   string `json:"WJBT"`
+		YWMC   string `json:"YWMC"`
+		YWMS   string `json:"YWMS"`
+		DJSJ   string `json:"DJSJ"`
+	} `json:"data"`
+	Count int `json:"count"`
+}
+
+const NewsContentUrl = "http://tz.its.csu.edu.cn/Home/Release_TZTG_zd/"
+const NewsUnifiedLoginUrl = "https://oa.csu.edu.cn/con/ggtz"
+const NewsListUrl = "https://oa.csu.edu.cn/con/xnbg/contentList"
 
 type NewsItem struct {
-	ID, Title, Dept, ViewCount, Time string
-	Link, Content                    string
+	ID, Title, Dept, Time string
+	Link, Content         string
+	ViewCount             int
 }
 
 type NewsList struct {
-	NowPage, TotalPage, TotalNews string
-	News                          []NewsItem
+	NowPage              string
+	TotalPage, TotalNews int
+	News                 []NewsItem
 }
 
-func GetNewsList(PageID string) (NewsList, error) {
-	req := httplib.Post(NEWSLIST_URL + PageID)
-	req.Header("x-forwarded-for", "202.197.71.84") //模仿校内登录
-	resp, err := req.String()
+func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
+	cookies, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
+	cookie := strings.Split(cookies, ";")
+	cookies = cookie[2]
+	beego.Info(cookies)
 	if err != nil {
-		return NewsList{}, utils.ERROR_SERVER
+		return NewsList{}, err
 	}
-	news := NewsList{}
-	//查找总页数,总信息数
-	re := regexp.MustCompile("共有数据：(.*)条&nbsp;共(.*)页&nbsp;当前")
-	res := re.FindStringSubmatch(resp)
-	news.NowPage = PageID
-	if len(res) == 3 {
-		news.TotalNews = res[1]
-		news.TotalPage = res[2]
-	}
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp))
+	req, _ := http.NewRequest("POST", NewsListUrl, strings.NewReader("params=%7B%22tableName%22%3A%22ZNDX_ZHBG_GGTZ%22%2C%22tjnr%22%3A%22%22%7D&pageSize=1&pageNo=20"))
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Cookie", cookies)
+	resp, err := http.DefaultClient.Do(req)
+	body, _ := io.ReadAll(resp.Body)
+	beego.Info(string(body))
+	var newsListJson NewsListJson
+	err = json.Unmarshal(body, &newsListJson)
 	if err != nil {
-		return NewsList{}, utils.ERROR_SERVER
+		return NewsList{}, err
 	}
-	newsItems := []NewsItem{}
-	//查找每个tr
-	doc.Find(".trs tr").Each(func(i int, s *goquery.Selection) {
-		tds := s.Find("td")
-		temp := tds.Find("a").AttrOr("onclick", "")
-		link := regexp.MustCompile(`/Home/Release_TZTG_zd/(.*)', '', 'left=0`).FindStringSubmatch(temp)[1]
+
+	var newsItems []NewsItem
+	for _, data := range newsListJson.Data {
 		newsItems = append(newsItems, NewsItem{
-			ID:        strings.Trim(tds.Eq(2).Text(), "\n "),
-			Title:     strings.Trim(tds.Eq(3).Text(), "\n "),
-			Dept:      strings.Trim(tds.Eq(4).Text(), "\n "),
-			ViewCount: strings.Trim(tds.Eq(5).Text(), "\n "),
-			Time:      strings.Trim(tds.Eq(6).Text(), "\n "),
-			Link:      link,
+			ID:        data.DJSJP,
+			Title:     data.WJBT,
+			Dept:      data.QCBMMC,
+			ViewCount: data.LLCS,
+			Time:      data.QCSJ,
+			Link:      data.YWMC,
 		})
-	})
+	}
+	var news NewsList
 	news.News = newsItems
+	news.NowPage = PageID
+	news.TotalNews = newsListJson.Count
+	news.TotalPage = newsListJson.Count / 20
 	return news, nil
 }
 
 func GetNewsContent(link string) (string, error) {
-	req := httplib.Get(NEWSARTICLE_URL + link)
+	req := httplib.Get(NewsContentUrl + link)
 	req.Header("x-forwarded-for", "202.197.71.84") //模仿校内登录
 	resp, err := req.String()
 	if err != nil {

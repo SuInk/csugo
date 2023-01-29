@@ -16,6 +16,24 @@ func init() {
 			Filters:          nil,
 			Params:           nil})
 
+	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:CetController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:CetController"],
+		beego.ControllerComments{
+			Method:           "GetHGrade",
+			Router:           "/cet/hgrade/:id/:name",
+			AllowHTTPMethods: []string{"get"},
+			MethodParams:     param.Make(),
+			Filters:          nil,
+			Params:           nil})
+
+	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:CetController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:CetController"],
+		beego.ControllerComments{
+			Method:           "GetZKZ",
+			Router:           "/cet/zkz/:id/:type",
+			AllowHTTPMethods: []string{"get"},
+			MethodParams:     param.Make(),
+			Filters:          nil,
+			Params:           nil})
+
 	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:ClassRoomController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:ClassRoomController"],
 		beego.ControllerComments{
 			Method:           "GetJXL",
@@ -81,22 +99,20 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"],
 		beego.ControllerComments{
-			Method:           "GPA",
-			Router:           "/jwc/:id/:pwd/grade",
-			AllowHTTPMethods: []string{"get"},
-			MethodParams:     param.Make(),
-			Filters:          nil,
-			Params:           nil})
-
-	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"],
-		beego.ControllerComments{
 			Method:           "Rank",
 			Router:           "/jwc/:id/:pwd/rank",
 			AllowHTTPMethods: []string{"get"},
 			MethodParams:     param.Make(),
 			Filters:          nil,
 			Params:           nil})
-
+	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"],
+		beego.ControllerComments{
+			Method:           "GPA",
+			Router:           "/jwc/:id/:pwd/gpa",
+			AllowHTTPMethods: []string{"get"},
+			MethodParams:     param.Make(),
+			Filters:          nil,
+			Params:           nil})
 	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:JwcController"],
 		beego.ControllerComments{
 			Method:           "WeekList",
@@ -154,7 +170,7 @@ func init() {
 	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:NewsController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:NewsController"],
 		beego.ControllerComments{
 			Method:           "GetNewsList",
-			Router:           "/news/list/:id",
+			Router:           "/news/:id/:pwd/list/:pageid",
 			AllowHTTPMethods: []string{"get"},
 			MethodParams:     param.Make(),
 			Filters:          nil,

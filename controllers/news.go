@@ -12,7 +12,11 @@ type NewsController struct {
 // @router /news/list/:id
 func (this *NewsController) GetNewsList() {
 	pageid := this.Ctx.Input.Param(":id")
-	news, err := models.GetNewsList(pageid)
+	user := &models.JwcUser{
+		Id:  this.Ctx.Input.Param(":id"),
+		Pwd: this.Ctx.Input.Param(":pwd"),
+	}
+	news, err := models.GetNewsList(user, pageid)
 	stateCode := 1
 	errorstr := ""
 	if err != nil {
