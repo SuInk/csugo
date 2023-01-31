@@ -92,28 +92,31 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 }
 
 func GetNewsContent(link, cookie string) (string, error) {
-	if _, err := os.Stat("./news/" + link + ".pdf"); os.IsNotExist(err) {
+	if _, err := os.Stat("./news/" + link + ".pdf"); err != nil {
 		file, err := os.Create("./news/" + link + ".pdf")
 		beego.Info(link)
 		req, _ := http.NewRequest("GET", NewsContentUrl+link, nil)
 		req.Header.Add("Cookie", cookie)
-		req.Header.Add("Content-Type", "application/octet-stream;charset=utf-8")
 		resp, err := http.DefaultClient.Do(req)
 		_, err = io.Copy(file, resp.Body)
+		defer file.Close()
 		if err != nil {
 			beego.Info(err)
 		}
 	}
-
 	f, r, err := pdf.Open("./news/" + link + ".pdf")
 	// remember close file
 	defer f.Close()
 	if err != nil {
+		os.Remove("./news/" + link + ".pdf")
+		beego.Info(err)
 		return "", err
 	}
 	var buf bytes.Buffer
 	b, err := r.GetPlainText()
 	if err != nil {
+		os.Remove("./news/" + link + ".pdf")
+		beego.Info(err)
 		return "", err
 	}
 	buf.ReadFrom(b)
