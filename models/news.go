@@ -3,9 +3,7 @@ package models
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego"
-	"github.com/csuhan/csugo/utils"
 	"github.com/ledongthuc/pdf"
 	"io"
 	"net/http"
@@ -54,7 +52,7 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	cookie, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
 	cookies := strings.Split(cookie, ";")
 	cookie = cookies[2]
-	beego.Info(cookie)
+	// beego.Info(cookie)
 	if err != nil {
 		return NewsList{}, err
 	}
@@ -64,7 +62,7 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	req.Header.Set("Cookie", cookie)
 	resp, err := http.DefaultClient.Do(req)
 	body, _ := io.ReadAll(resp.Body)
-	beego.Info(string(body))
+	// beego.Info(string(body))
 	var newsListJson NewsListJson
 	err = json.Unmarshal(body, &newsListJson)
 	if err != nil {
@@ -120,31 +118,4 @@ func GetNewsContent(link, cookie string) (string, error) {
 	}
 	buf.ReadFrom(b)
 	return buf.String(), nil
-}
-
-func htmldeparse(resp string) (string, error) {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp))
-	if err != nil {
-		return "", utils.ERROR_SERVER
-	}
-	//找到文章区
-	docContent := doc.Find("table").Eq(2).Find("tr").Eq(2).Find("td").Eq(0)
-	//内容处理,去除多余内容
-	docContent.Find("p.MsoNormal").Each(func(i int, s *goquery.Selection) {
-		s.SetAttr("style", "text-indent: 32px;")
-		temp := strings.Trim(s.Text(), "\u00a0")
-		if temp == "" {
-			s.Remove()
-		} else {
-			s.SetHtml(temp)
-		}
-	})
-	res, err := docContent.Html()
-	res = "<div style='margin:20px 10px;font-size:16px!important;'>" + res + "</div>"
-	//o:p标签,特殊字符去除
-	spestrs := []string{"<o:p></o:p>", "<o:p>", "</o:p>"}
-	for _, spestr := range spestrs {
-		res = strings.Replace(res, spestr, "", -1)
-	}
-	return res, nil
 }
