@@ -85,7 +85,7 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	var news NewsList
 	news.News = newsItems
 	news.NowPage = PageID
-	news.Cookie = cookie
+	news.Cookie = cookie[strings.Index(cookie, "=")+1:]
 	news.TotalNews = newsListJson.Count
 	news.TotalPage = newsListJson.Count / 20
 	return news, nil
