@@ -11,7 +11,7 @@ type NewsController struct {
 
 // @router /news/list/:id
 func (this *NewsController) GetNewsList() {
-	pageid := this.Ctx.Input.Param(":id")
+	pageid := this.Ctx.Input.Param(":pageid")
 	user := &models.JwcUser{
 		Id:  this.Ctx.Input.Param(":id"),
 		Pwd: this.Ctx.Input.Param(":pwd"),
@@ -37,7 +37,7 @@ func (this *NewsController) GetNewsList() {
 
 // @router /news/article/:link [get]
 func (this *NewsController) GetNewsContent() {
-	content, err := models.GetNewsContent(this.Ctx.Input.Param(":link"))
+	content, err := models.GetNewsContent(this.Ctx.Input.Param(":link"), this.Ctx.Input.Param(":cookie"))
 	stateCode := 1
 	errorstr := ""
 	if err != nil {

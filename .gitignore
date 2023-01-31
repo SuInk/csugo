@@ -5,3 +5,5 @@
 *.tmp
 main
 *.exe
+.pdf
+news

@@ -161,7 +161,7 @@ func init() {
 	beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:NewsController"] = append(beego.GlobalControllerRouter["github.com/csuhan/csugo/controllers:NewsController"],
 		beego.ControllerComments{
 			Method:           "GetNewsContent",
-			Router:           "/news/article/:link",
+			Router:           "/news/article/:link/:cookie",
 			AllowHTTPMethods: []string{"get"},
 			MethodParams:     param.Make(),
 			Filters:          nil,

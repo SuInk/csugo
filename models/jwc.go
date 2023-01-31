@@ -499,10 +499,13 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	}
 	if strings.Contains(doc.Text(), "中南e行APP扫码登录") && response.StatusCode != 200 {
 		switch doc.Find("span#showErrorTip").First().Text() {
+		case "您提供的用户名或者密码有误":
+			if captcha == "None" {
+				return client, utils.ErrorIdPwd
+			}
+			return client, utils.ErrorIdPwd
 		case "验证码错误":
 			return client, utils.ErrorCaptcha
-		case "您提供的用户名或者密码有误":
-			return client, utils.ErrorIdPwd
 		case "输入多次密码错误账号冻结，5-10分钟自动解冻":
 			return client, utils.ErrorLocked
 		default:

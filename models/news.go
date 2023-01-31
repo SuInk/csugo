@@ -1,15 +1,36 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/httplib"
 	"github.com/csuhan/csugo/utils"
+	"github.com/ledongthuc/pdf"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
+	"time"
 )
+
+const NewsContentUrl = "https://oa.csu.edu.cn/con/xnbg/loadContentPdf/"
+const NewsUnifiedLoginUrl = "https://oa.csu.edu.cn/con/ggtz"
+const NewsListUrl = "https://oa.csu.edu.cn/con/xnbg/contentList"
+
+type NewsItem struct {
+	ID                int
+	Title, Dept, Time string
+	Link, Content     string
+	ViewCount         int
+}
+
+type NewsList struct {
+	NowPage, Cookie      string
+	TotalPage, TotalNews int
+	News                 []NewsItem
+}
 
 type NewsListJson struct {
 	Data []struct {
@@ -29,34 +50,18 @@ type NewsListJson struct {
 	Count int `json:"count"`
 }
 
-const NewsContentUrl = "http://tz.its.csu.edu.cn/Home/Release_TZTG_zd/"
-const NewsUnifiedLoginUrl = "https://oa.csu.edu.cn/con/ggtz"
-const NewsListUrl = "https://oa.csu.edu.cn/con/xnbg/contentList"
-
-type NewsItem struct {
-	ID, Title, Dept, Time string
-	Link, Content         string
-	ViewCount             int
-}
-
-type NewsList struct {
-	NowPage              string
-	TotalPage, TotalNews int
-	News                 []NewsItem
-}
-
 func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
-	cookies, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
-	cookie := strings.Split(cookies, ";")
-	cookies = cookie[2]
-	beego.Info(cookies)
+	cookie, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
+	cookies := strings.Split(cookie, ";")
+	cookie = cookies[2]
+	beego.Info(cookie)
 	if err != nil {
 		return NewsList{}, err
 	}
-	req, _ := http.NewRequest("POST", NewsListUrl, strings.NewReader("params=%7B%22tableName%22%3A%22ZNDX_ZHBG_GGTZ%22%2C%22tjnr%22%3A%22%22%7D&pageSize=1&pageNo=20"))
+	req, _ := http.NewRequest("POST", NewsListUrl, strings.NewReader("params=%7B%22tableName%22%3A%22ZNDX_ZHBG_GGTZ%22%2C%22tjnr%22%3A%22%22%7D&pageSize="+PageID+"&pageNo=20"))
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Cookie", cookies)
+	req.Header.Set("Cookie", cookie)
 	resp, err := http.DefaultClient.Do(req)
 	body, _ := io.ReadAll(resp.Body)
 	beego.Info(string(body))
@@ -67,36 +72,54 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	}
 
 	var newsItems []NewsItem
-	for _, data := range newsListJson.Data {
+	page, err := strconv.Atoi(PageID)
+	for i, data := range newsListJson.Data {
+		formattedTime, _ := time.Parse("Jan 2, 2006 3:04:05 PM", data.DJSJP)
 		newsItems = append(newsItems, NewsItem{
-			ID:        data.DJSJP,
-			Title:     data.WJBT,
-			Dept:      data.QCBMMC,
-			ViewCount: data.LLCS,
-			Time:      data.QCSJ,
+			ID:        page*20 - 19 + i,                          //
+			Title:     data.WJBT,                                 // 文件标题
+			Dept:      data.QCBMMC,                               // 起草部门名称
+			ViewCount: data.LLCS,                                 // 浏览次数
+			Time:      formattedTime.Format("2006-01-02 15:04 "), // 登记时间
 			Link:      data.YWMC,
 		})
 	}
 	var news NewsList
 	news.News = newsItems
 	news.NowPage = PageID
+	news.Cookie = cookie
 	news.TotalNews = newsListJson.Count
 	news.TotalPage = newsListJson.Count / 20
 	return news, nil
 }
 
-func GetNewsContent(link string) (string, error) {
-	req := httplib.Get(NewsContentUrl + link)
-	req.Header("x-forwarded-for", "202.197.71.84") //模仿校内登录
-	resp, err := req.String()
-	if err != nil {
-		return "", utils.ERROR_SERVER
+func GetNewsContent(link, cookie string) (string, error) {
+	if _, err := os.Stat("./news/" + link + ".pdf"); os.IsNotExist(err) {
+		file, err := os.Create("./news/" + link + ".pdf")
+		beego.Info(link)
+		req, _ := http.NewRequest("GET", NewsContentUrl+link, nil)
+		req.Header.Add("Cookie", cookie)
+		req.Header.Add("Content-Type", "application/octet-stream;charset=utf-8")
+		resp, err := http.DefaultClient.Do(req)
+		_, err = io.Copy(file, resp.Body)
+		if err != nil {
+			beego.Info(err)
+		}
 	}
-	res, err := htmldeparse(resp)
+
+	f, r, err := pdf.Open("./news/" + link + ".pdf")
+	// remember close file
+	defer f.Close()
 	if err != nil {
-		return "", utils.ERROR_SERVER
+		return "", err
 	}
-	return res, nil
+	var buf bytes.Buffer
+	b, err := r.GetPlainText()
+	if err != nil {
+		return "", err
+	}
+	buf.ReadFrom(b)
+	return buf.String(), nil
 }
 
 func htmldeparse(resp string) (string, error) {
