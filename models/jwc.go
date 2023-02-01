@@ -537,6 +537,7 @@ func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 	client.Jar = jar
 	resp, _ := client.Get(unifiedUrl)
 	nowUrl := resp.Request.URL.String()
+	// beego.Info(nowUrl)
 	req, _ := http.NewRequest("GET", nowUrl, nil)
 	req.Header.Add("User-Agent", "csulite robot v1.0")
 	response, err := client.Do(req)
