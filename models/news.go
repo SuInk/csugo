@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/ledongthuc/pdf"
 	"io"
@@ -131,7 +130,7 @@ func pdfParser(link string) (string, error) {
 				lastTextStyle.FontSize = text.FontSize
 				lastTextStyle.S = lastTextStyle.S + text.S
 			} else {
-				fmt.Printf("Font: %s, Font-size: %f, x: %f, y: %f, content: %s \n", lastTextStyle.Font, lastTextStyle.FontSize, lastTextStyle.X, lastTextStyle.Y, lastTextStyle.S)
+				// fmt.Printf("Font: %s, Font-size: %f, x: %f, y: %f, content: %s \n", lastTextStyle.Font, lastTextStyle.FontSize, lastTextStyle.X, lastTextStyle.Y, lastTextStyle.S)
 				fullText = fullText + lastTextStyle.S + "\n"
 				lastTextStyle = text
 			}
