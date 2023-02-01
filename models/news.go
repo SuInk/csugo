@@ -1,8 +1,8 @@
 package models
 
 import (
-	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/ledongthuc/pdf"
 	"io"
@@ -105,19 +105,47 @@ func GetNewsContent(link, cookie string) (string, error) {
 			beego.Info(err)
 		}
 	}
+	return pdfParser(link)
+}
+func pdfParser(link string) (string, error) {
 	f, r, err := pdf.Open("./news/" + link + ".pdf")
-	if err != nil {
-		beego.Info(err)
-		return "", err
-	}
 	// remember close file
 	defer f.Close()
-	var buf bytes.Buffer
-	b, err := r.GetPlainText()
 	if err != nil {
-		beego.Info(err)
 		return "", err
 	}
-	buf.ReadFrom(b)
-	return buf.String(), nil
+	totalPage := r.NumPage()
+	var fullText string = "\n"
+	for pageIndex := 1; pageIndex <= totalPage; pageIndex++ {
+		p := r.Page(pageIndex)
+		if p.V.IsNull() {
+			continue
+		}
+		var lastTextStyle pdf.Text
+		texts := p.Content().Text
+		for _, text := range texts {
+			if isSameSentence(lastTextStyle, text) {
+				lastTextStyle.X = text.X
+				lastTextStyle.Y = text.Y
+				lastTextStyle.Font = text.Font
+				lastTextStyle.FontSize = text.FontSize
+				lastTextStyle.S = lastTextStyle.S + text.S
+			} else {
+				fmt.Printf("Font: %s, Font-size: %f, x: %f, y: %f, content: %s \n", lastTextStyle.Font, lastTextStyle.FontSize, lastTextStyle.X, lastTextStyle.Y, lastTextStyle.S)
+				fullText = fullText + lastTextStyle.S + "\n"
+				lastTextStyle = text
+			}
+		}
+		fullText = fullText + lastTextStyle.S + "\n"
+	}
+	return strings.ReplaceAll(fullText, "\n\n", ""), nil
+}
+func isSameSentence(text1, text2 pdf.Text) bool {
+	if text2.FontSize-text1.FontSize > 2 || text2.FontSize-text1.FontSize < -2 {
+		return false
+	}
+	if (text2.Y-text1.Y < 10 && text2.Y-text1.Y > -10) || text2.X < 100 || text2.FontSize > 20 {
+		return true
+	}
+	return false
 }
