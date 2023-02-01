@@ -47,7 +47,7 @@ func (this *NewsController) GetNewsContent() {
 	this.Data["json"] = struct {
 		StateCode int
 		Error     string
-		Content   string
+		Content   []string
 	}{
 		StateCode: stateCode,
 		Error:     errorstr,

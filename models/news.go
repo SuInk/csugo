@@ -90,7 +90,7 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	return news, nil
 }
 
-func GetNewsContent(link, cookie string) (string, error) {
+func GetNewsContent(link, cookie string) ([]string, error) {
 
 	if f, _, err := pdf.Open("./news/" + link + ".pdf"); err != nil {
 		f.Close()
@@ -106,15 +106,15 @@ func GetNewsContent(link, cookie string) (string, error) {
 	}
 	return pdfParser(link)
 }
-func pdfParser(link string) (string, error) {
+func pdfParser(link string) ([]string, error) {
 	f, r, err := pdf.Open("./news/" + link + ".pdf")
 	// remember close file
 	defer f.Close()
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
 	totalPage := r.NumPage()
-	var fullText string = "\n"
+	var fullText []string
 	for pageIndex := 1; pageIndex <= totalPage; pageIndex++ {
 		p := r.Page(pageIndex)
 		if p.V.IsNull() {
@@ -131,13 +131,22 @@ func pdfParser(link string) (string, error) {
 				lastTextStyle.S = lastTextStyle.S + text.S
 			} else {
 				// fmt.Printf("Font: %s, Font-size: %f, x: %f, y: %f, content: %s \n", lastTextStyle.Font, lastTextStyle.FontSize, lastTextStyle.X, lastTextStyle.Y, lastTextStyle.S)
-				fullText = fullText + lastTextStyle.S + "\n\t"
+				fullText = append(fullText, lastTextStyle.S)
 				lastTextStyle = text
 			}
 		}
-		fullText = fullText + lastTextStyle.S + "\n\t"
+		fullText = append(fullText, lastTextStyle.S)
 	}
-	return strings.ReplaceAll(fullText, "\n\t\n\t", ""), nil
+	for i, text := range fullText {
+		if text == "" && i == 0 {
+			fullText = append(fullText[:i], fullText[i+1:]...)
+		}
+		if text == "" && i != 0 {
+			fullText[i-1] += fullText[i+1]
+			fullText = append(fullText[:i], fullText[i+2:]...)
+		}
+	}
+	return fullText, nil
 }
 func isSameSentence(text1, text2 pdf.Text) bool {
 	if text2.FontSize-text1.FontSize > 2 || text2.FontSize-text1.FontSize < -2 {
