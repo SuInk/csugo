@@ -135,7 +135,7 @@ func pdfParser(link string) (string, error) {
 				lastTextStyle = text
 			}
 		}
-		fullText = fullText + lastTextStyle.S + "\n"
+		fullText = fullText + lastTextStyle.S + "\n  "
 	}
 	return strings.ReplaceAll(fullText, "\n  \n  ", ""), nil
 }
