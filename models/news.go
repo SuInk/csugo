@@ -131,13 +131,13 @@ func pdfParser(link string) (string, error) {
 				lastTextStyle.S = lastTextStyle.S + text.S
 			} else {
 				// fmt.Printf("Font: %s, Font-size: %f, x: %f, y: %f, content: %s \n", lastTextStyle.Font, lastTextStyle.FontSize, lastTextStyle.X, lastTextStyle.Y, lastTextStyle.S)
-				fullText = fullText + lastTextStyle.S + "\n"
+				fullText = fullText + lastTextStyle.S + "\n\\u3000\\u3000"
 				lastTextStyle = text
 			}
 		}
 		fullText = fullText + lastTextStyle.S + "\n"
 	}
-	return strings.ReplaceAll(fullText, "\n\n", ""), nil
+	return strings.ReplaceAll(fullText, "\n\\u3000\\u3000\n\\u3000\\u3000", ""), nil
 }
 func isSameSentence(text1, text2 pdf.Text) bool {
 	if text2.FontSize-text1.FontSize > 2 || text2.FontSize-text1.FontSize < -2 {
