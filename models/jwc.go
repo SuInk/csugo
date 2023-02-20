@@ -25,6 +25,7 @@ const JWC_UNIFIED_URL = "https://ca.csu.edu.cn/authserver/login?service=http%3A%
 const JWC_BASE_URL = "http://csujwc.its.csu.edu.cn/jsxsd/"
 const JWC_LOGIN_URL = JWC_BASE_URL + "xk/LoginToXk"
 const JWC_GRADE_URL = JWC_BASE_URL + "kscj/yscjcx_list"
+const JWC_VALID_GRADE_URL = JWC_BASE_URL + "kscj/cjcx_list"
 const JWC_RANK_URL = JWC_BASE_URL + "kscj/zybm_cx"
 const JWC_CLASS_URL = JWC_BASE_URL + "xskb/xskb_list.do"
 const JWC_EXAMOPTION_URL = JWC_BASE_URL + "xsks/xsksap_query"
@@ -68,21 +69,38 @@ type Weeklist struct {
 
 type Jwc struct{}
 
-// 成绩查询
+// Grade 成绩查询 除非有人重构,不然。。。
 func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 	//登录系统
-	cookies, err := this.Login(user)
+	client, err := this.Login(user)
 	if err != nil {
 		beego.Debug(err)
 		return nil, err
 	}
-	response, err := this.LogedRequest(user, "GET", JWC_GRADE_URL, cookies, nil)
+	// 有效成绩查询
+	validGrades := make(map[string]string)
+	validResp, err := this.LogedRequest(user, "GET", JWC_VALID_GRADE_URL, client, nil)
+	if err != nil {
+		return nil, err
+	}
+	validData, _ := io.ReadAll(validResp.Body)
+	validDoc, _ := goquery.NewDocumentFromReader(strings.NewReader(string(validData)))
+	defer validResp.Body.Close()
+	validDoc.Find("table#dataList tr").Each(func(i int, selection *goquery.Selection) {
+		if i != 0 {
+			s := selection.Find("td")
+			if s.Eq(0).Text() != "" {
+				validGrades[s.Eq(4).Text()] = s.Eq(5).Text()
+			}
+		}
+	})
+	// beego.Info(validGrades)
+	response, err := this.LogedRequest(user, "GET", JWC_GRADE_URL, client, nil)
 	if err != nil {
 		return []JwcGrade{}, err
 	}
-	data, _ := ioutil.ReadAll(response.Body)
+	data, _ := io.ReadAll(response.Body)
 	//beego.Info(data)
-	defer response.Body.Close()
 	if !strings.Contains(string(data), "学生个人考试成绩") {
 		return []JwcGrade{}, utils.ERROR_JWC
 	}
@@ -90,25 +108,33 @@ func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 	if err != nil {
 		return []JwcGrade{}, utils.ERROR_SERVER
 	}
-	Grades := []JwcGrade{}
+	defer response.Body.Close()
+	var Grades []JwcGrade
 	doc.Find("table#dataList tr").Each(func(i int, selection *goquery.Selection) {
 		if i != 0 {
 			s := selection.Find("td")
-			jwcgrade := JwcGrade{
+			trueGrade := func(x, y string) string {
+				if _, ok := validGrades[x]; ok && y == "请评教" {
+					return validGrades[x]
+				}
+				return y
+			}
+			jwcGrade := JwcGrade{
 				ClassNo:     i,
 				FirstTerm:   s.Eq(1).Text(),
 				GottenTerm:  s.Eq(2).Text(),
 				ClassName:   s.Eq(3).Text(),
 				MiddleGrade: s.Eq(4).Text(),
 				FinalGrade:  s.Eq(5).Text(),
-				Grade:       s.Eq(6).Text(),
+				Grade:       trueGrade(s.Eq(3).Text(), s.Eq(6).Text()),
 				ClassScore:  s.Eq(7).Text(),
 				ClassType:   s.Eq(8).Text(),
 				ClassProp:   s.Eq(9).Text(),
 			}
-			Grades = append(Grades, jwcgrade)
+			Grades = append(Grades, jwcGrade)
 		}
 	})
+
 	return Grades, nil
 }
 
@@ -364,6 +390,7 @@ func Standard4(grade string) float64 {
 	}
 	return GPA
 }
+
 func Standard4_1(grade string) float64 {
 	GPA := 0.0
 	grade = ToScore(grade)
@@ -479,15 +506,14 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 		}
 	}
 	reqData := url.Values{
-		"username":   {user.Id},
-		"password":   {encodePwd},
-		"captcha":    {captcha},
-		"rememberMe": {"True"},
-		"_eventId":   {"submit"},
-		"cllt":       {"userNameLogin"},
-		"dllt":       {"generalLogin"},
-		"lt":         {"None"},
-		"execution":  {doc.Find("#execution").AttrOr("value", "")},
+		"username":  {user.Id},
+		"password":  {encodePwd},
+		"captcha":   {captcha},
+		"_eventId":  {"submit"},
+		"cllt":      {"userNameLogin"},
+		"dllt":      {"generalLogin"},
+		"lt":        {"None"},
+		"execution": {doc.Find("#execution").AttrOr("value", "")},
 	}
 	response, err = client.Post(JWC_UNIFIED_URL, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
 	//body, _ = io.ReadAll(response.Body)
@@ -525,7 +551,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	return client, err
 }
 
-// 统一认证登录的封装
+// UnifiedLogin 统一认证登录的封装,返回cookie
 func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
 	//获取cookie
@@ -537,6 +563,7 @@ func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 	client.Jar = jar
 	resp, _ := client.Get(unifiedUrl)
 	nowUrl := resp.Request.URL.String()
+	// beego.Info(nowUrl)
 	req, _ := http.NewRequest("GET", nowUrl, nil)
 	req.Header.Add("User-Agent", "csulite robot v1.0")
 	response, err := client.Do(req)
@@ -565,15 +592,14 @@ func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 		}
 	}
 	reqData := url.Values{
-		"username":   {user.Id},
-		"password":   {encodePwd},
-		"captcha":    {captcha},
-		"rememberMe": {"True"},
-		"_eventId":   {"submit"},
-		"cllt":       {"userNameLogin"},
-		"dllt":       {"generalLogin"},
-		"lt":         {"None"},
-		"execution":  {doc.Find("#execution").AttrOr("value", "")},
+		"username":  {user.Id},
+		"password":  {encodePwd},
+		"captcha":   {captcha},
+		"_eventId":  {"submit"},
+		"cllt":      {"userNameLogin"},
+		"dllt":      {"generalLogin"},
+		"lt":        {"None"},
+		"execution": {doc.Find("#execution").AttrOr("value", "")},
 	}
 	response, err = client.Post(nowUrl, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
 	//body, _ = io.ReadAll(response.Body)

@@ -49,12 +49,12 @@ type NewsListJson struct {
 
 func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	cookie, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
-	cookies := strings.Split(cookie, ";")
-	cookie = cookies[2]
-	// beego.Info(cookie)
 	if err != nil {
 		return NewsList{}, err
 	}
+	cookies := strings.Split(cookie, ";")
+	cookie = cookies[2]
+	// beego.Info(cookie)
 	req, _ := http.NewRequest("POST", NewsListUrl, strings.NewReader("params=%7B%22tableName%22%3A%22ZNDX_ZHBG_GGTZ%22%2C%22tjnr%22%3A%22%22%7D&pageSize="+PageID+"&pageNo=20"))
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
