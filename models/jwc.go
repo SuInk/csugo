@@ -627,7 +627,12 @@ func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 			return "", utils.ErrorFailLogin
 		}
 	}
-
+	go func() {
+		err := Logout(&client)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 	return req.Header.Get("Cookie"), nil
 }
 
