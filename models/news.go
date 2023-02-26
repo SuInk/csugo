@@ -141,7 +141,7 @@ func pdfParser(link string) ([]string, error) {
 		if text == "" && i == 0 {
 			fullText = append(fullText[:i], fullText[i+1:]...)
 		}
-		if text == "" && i != 0 {
+		if text == "" && i != 0 && i<len(fullText)-2 {
 			fullText[i-1] += fullText[i+1]
 			fullText = append(fullText[:i], fullText[i+2:]...)
 		}

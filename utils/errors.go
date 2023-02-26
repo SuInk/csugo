@@ -18,7 +18,7 @@ var (
 	*/
 	ErrorUnified          = errors.New("统一认证服务出了点问题，请稍后再试")
 	ErrorFailLogin        = errors.New("统一认证登录失败，请确认您能正常登录my.csu.edu.cn")
-	ErrorIdPwd            = errors.New("您提供的统一认证账号密码可能有误")
+	ErrorIdPwd            = errors.New("您提供的统一认证账号密码错误")
 	ErrorIdPwdWithCaptcha = errors.New("您已触发验证码，提供的统一认证账号密码有误")
 	ErrorLocked           = errors.New("密码错误次数过多，您的统一认证账号已被暂时冻结，请5-10分钟后再试")
 	ErrorJwc              = errors.New("教务系统出了点问题,请稍后再试")
