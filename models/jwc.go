@@ -420,6 +420,12 @@ func (this *Jwc) LogedRequest(user *JwcUser, Method, Url string, client http.Cli
 	// beego.Info(Req)
 	Cookiesreq, err := client.Do(Req)
 	// beego.Info(Cookiesreq)
+	go func() {
+		err := Logout(&client)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	return Cookiesreq, err
 }
@@ -621,5 +627,20 @@ func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
 			return "", utils.ErrorFailLogin
 		}
 	}
+
 	return req.Header.Get("Cookie"), nil
+}
+
+// Logout 请求后登出账号，防止登录设备过多
+func Logout(client *http.Client) (err error) {
+	resp, err := client.Get("https://ca.csu.edu.cn/authserver/logout?service=https%3A%2F%2Fca.csu.edu.cn%2Fauthserver%2Findex.do")
+	if err != nil {
+		return err
+	}
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+	return nil
+
 }
