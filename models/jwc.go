@@ -24,6 +24,7 @@ import (
 const JWC_UNIFIED_URL = "https://ca.csu.edu.cn/authserver/login?service=http%3A%2F%2Fcsujwc.its.csu.edu.cn%2Fsso.jsp"
 const JWC_BASE_URL = "http://csujwc.its.csu.edu.cn/jsxsd/"
 const JWC_LOGIN_URL = JWC_BASE_URL + "xk/LoginToXk"
+const JWC_INDEX_URL = "http://csujwc.its.csu.edu.cn/jsxsd/framework/xsMain.jsp"
 const JWC_GRADE_URL = JWC_BASE_URL + "kscj/yscjcx_list"
 const JWC_VALID_GRADE_URL = JWC_BASE_URL + "kscj/cjcx_list"
 const JWC_RANK_URL = JWC_BASE_URL + "kscj/zybm_cx"
@@ -66,6 +67,8 @@ type Class struct {
 type Weeklist struct {
 	WeekList string
 }
+
+var ClientMap = make(map[JwcUser]http.Client)
 
 type Jwc struct{}
 
@@ -474,8 +477,16 @@ func AES_CBC_Encrypt(plainText []byte, key []byte) string {
 	return base64.StdEncoding.EncodeToString(cipherText)
 }
 
-// 教务系统登录
+// Login 教务系统登录
 func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
+	//尝试免登录
+	if client, ok := ClientMap[*user]; ok {
+		resp, _ := client.Get(JWC_INDEX_URL)
+		body, _ := io.ReadAll(resp.Body)
+		if strings.Contains(string(body), "我的成绩") {
+			return client, nil
+		}
+	}
 	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
 	//获取cookie
 	var client http.Client
@@ -551,8 +562,10 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	defer response.Body.Close()
 	//登陆成功
 	if strings.Contains(doc.Text(), "我的桌面") {
+		ClientMap[*user] = client
 		return client, nil
 	}
+	// 未知错误
 	err = fmt.Errorf("%d%w", response.StatusCode, utils.ErrorJwc)
 	return client, err
 }
