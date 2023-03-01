@@ -82,21 +82,7 @@ func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 	}
 	// 有效成绩查询
 	validGrades := make(map[string]string)
-	validResp, err := this.LogedRequest(user, "GET", JWC_VALID_GRADE_URL, client, nil)
-	if err != nil {
-		return nil, err
-	}
-	validData, _ := io.ReadAll(validResp.Body)
-	validDoc, _ := goquery.NewDocumentFromReader(strings.NewReader(string(validData)))
-	defer validResp.Body.Close()
-	validDoc.Find("table#dataList tr").Each(func(i int, selection *goquery.Selection) {
-		if i != 0 {
-			s := selection.Find("td")
-			if s.Eq(0).Text() != "" {
-				validGrades[s.Eq(4).Text()] = s.Eq(5).Text()
-			}
-		}
-	})
+
 	// beego.Info(validGrades)
 	response, err := this.LogedRequest(user, "GET", JWC_GRADE_URL, client, nil)
 	if err != nil {
@@ -117,10 +103,26 @@ func (this *Jwc) Grade(user *JwcUser) ([]JwcGrade, error) {
 		if i != 0 {
 			s := selection.Find("td")
 			trueGrade := func(x, y string) string {
-				if _, ok := validGrades[x]; ok && y == "请评教" {
+				if !strings.Contains(y, "评") {
+					return y
+				}
+				if e, ok := validGrades[x]; ok && strings.Contains(y, "评") {
+					return e
+				} else {
+					validResp, _ := this.LogedRequest(user, "GET", JWC_VALID_GRADE_URL, client, nil)
+					validData, _ := io.ReadAll(validResp.Body)
+					validDoc, _ := goquery.NewDocumentFromReader(strings.NewReader(string(validData)))
+					defer validResp.Body.Close()
+					validDoc.Find("table#dataList tr").Each(func(i int, selection *goquery.Selection) {
+						if i != 0 {
+							s := selection.Find("td")
+							if s.Eq(0).Text() != "" {
+								validGrades[s.Eq(4).Text()] = s.Eq(5).Text()
+							}
+						}
+					})
 					return validGrades[x]
 				}
-				return y
 			}
 			jwcGrade := JwcGrade{
 				ClassNo:     i,
