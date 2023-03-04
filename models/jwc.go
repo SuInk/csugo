@@ -423,16 +423,10 @@ func (this *Jwc) LogedRequest(user *JwcUser, Method, Url string, client http.Cli
 		return nil, utils.ERROR_SERVER
 	}
 	// beego.Info(Req)
-	Cookiesreq, err := client.Do(Req)
+	CookiesResp, err := client.Do(Req)
 	// beego.Info(Cookiesreq)
-	go func() {
-		err := Logout(&client)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
 
-	return Cookiesreq, err
+	return CookiesResp, err
 }
 
 // 随机字符串
@@ -570,97 +564,4 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	// 未知错误
 	err = fmt.Errorf("%d%w", response.StatusCode, utils.ErrorJwc)
 	return client, err
-}
-
-// UnifiedLogin 统一认证登录的封装,返回cookie
-func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
-	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
-	//获取cookie
-	var client http.Client
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		panic(err)
-	}
-	client.Jar = jar
-	resp, _ := client.Get(unifiedUrl)
-	nowUrl := resp.Request.URL.String()
-	// beego.Info(nowUrl)
-	req, _ := http.NewRequest("GET", nowUrl, nil)
-	req.Header.Add("User-Agent", "csulite robot v1.0")
-	response, err := client.Do(req)
-	//response, err := http.Get(JWC_UNIFIED_URL)
-	if err != nil || response.StatusCode != 200 {
-		return "", utils.ERROR_UNIFIED
-	}
-	//body1, _ := ioutil.ReadAll(response.Body)
-	//beego.Info(string(body1))
-	doc, err := goquery.NewDocumentFromReader(response.Body)
-	//beego.Info(doc.Find("#pwdEncryptSalt").AttrOr("value", ""))
-	encodePwd := AES_CBC_Encrypt([]byte(password), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
-	// 验证码识别
-	captcha := "None"
-	respIsNeed, err := client.Get(fmt.Sprintf("https://ca.csu.edu.cn/authserver/checkNeedCaptcha.htl?username=%s&_=%s", user.Id, strconv.FormatInt(time.Now().UnixNano()/1e6, 10)))
-	if err != nil {
-		return "", err
-	}
-	body, _ := io.ReadAll(respIsNeed.Body)
-	if strings.Contains(string(body), "true") {
-		//需要验证码
-		log.Println(user.Id, "需要验证码")
-		captcha, err = utils.GetCaptcha(&client)
-		if err != nil {
-			return "", err
-		}
-	}
-	reqData := url.Values{
-		"username":  {user.Id},
-		"password":  {encodePwd},
-		"captcha":   {captcha},
-		"_eventId":  {"submit"},
-		"cllt":      {"userNameLogin"},
-		"dllt":      {"generalLogin"},
-		"lt":        {"None"},
-		"execution": {doc.Find("#execution").AttrOr("value", "")},
-	}
-	response, err = client.Post(nowUrl, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
-	//body, _ = io.ReadAll(response.Body)
-	//log.Println(string(body))
-	// 统一认证错误处理
-	doc, err = goquery.NewDocumentFromReader(response.Body)
-	if err != nil {
-		return "", utils.ErrorServer
-	}
-	if strings.Contains(doc.Text(), "中南e行APP扫码登录") && response.StatusCode != 200 {
-		switch doc.Find("span#showErrorTip").First().Text() {
-		case "验证码错误":
-			return "", utils.ErrorCaptcha
-		case "您提供的用户名或者密码有误":
-			return "", utils.ErrorIdPwd
-		case "输入多次密码错误账号冻结，5-10分钟自动解冻":
-			return "", utils.ErrorLocked
-		default:
-			return "", utils.ErrorFailLogin
-		}
-	}
-	go func() {
-		err := Logout(&client)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-	return req.Header.Get("Cookie"), nil
-}
-
-// Logout 请求后登出账号，防止登录设备过多
-func Logout(client *http.Client) (err error) {
-	resp, err := client.Get("https://ca.csu.edu.cn/authserver/logout?service=https%3A%2F%2Fca.csu.edu.cn%2Fauthserver%2Findex.do")
-	if err != nil {
-		return err
-	}
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	return nil
-
 }

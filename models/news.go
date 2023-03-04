@@ -1,11 +1,18 @@
 package models
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/astaxie/beego"
+	"github.com/csuhan/csugo/utils"
 	"github.com/ledongthuc/pdf"
 	"io"
+	"log"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -47,6 +54,98 @@ type NewsListJson struct {
 	Count int `json:"count"`
 }
 
+// UnifiedLogin 统一认证登录的封装,返回cookie
+func UnifiedLogin(user *JwcUser, unifiedUrl string) (string, error) {
+	//尝试免登录
+	if client, ok := ClientMap[*user]; ok {
+		req, _ := http.NewRequest("GET", unifiedUrl, nil)
+		resp, _ := client.Do(req)
+		body, _ := io.ReadAll(resp.Body)
+		if strings.Contains(string(body), "校内通知") {
+			var cookies string
+			for _, v := range resp.Cookies() {
+				cookies += v.String()
+			}
+			if cookies == "" {
+				cookies = client.Jar.Cookies(req.URL)[0].String()
+			}
+			return "empty;empty;" + cookies, nil
+		}
+	}
+	password, _ := base64.StdEncoding.DecodeString(user.Pwd)
+	//获取cookie
+	var client http.Client
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		panic(err)
+	}
+	client.Jar = jar
+	resp, _ := client.Get(unifiedUrl)
+	nowUrl := resp.Request.URL.String()
+	beego.Info(nowUrl)
+	// 校内网免登录，会出错
+	req, _ := http.NewRequest("GET", nowUrl, nil)
+	req.Header.Add("User-Agent", "csulite robot v1.0")
+	response, err := client.Do(req)
+	//response, err := http.Get(JWC_UNIFIED_URL)
+	if err != nil || response.StatusCode != 200 {
+		return "", utils.ERROR_UNIFIED
+	}
+	//body1, _ := ioutil.ReadAll(response.Body)
+	//beego.Info(string(body1))
+	doc, err := goquery.NewDocumentFromReader(response.Body)
+	//beego.Info(doc.Find("#pwdEncryptSalt").AttrOr("value", ""))
+	encodePwd := AES_CBC_Encrypt([]byte(password), []byte(doc.Find("#pwdEncryptSalt").AttrOr("value", "")))
+	// 验证码识别
+	captcha := "None"
+	respIsNeed, err := client.Get(fmt.Sprintf("https://ca.csu.edu.cn/authserver/checkNeedCaptcha.htl?username=%s&_=%s", user.Id, strconv.FormatInt(time.Now().UnixNano()/1e6, 10)))
+	if err != nil {
+		return "", err
+	}
+	body, _ := io.ReadAll(respIsNeed.Body)
+	if strings.Contains(string(body), "true") {
+		//需要验证码
+		log.Println(user.Id, "需要验证码")
+		captcha, err = utils.GetCaptcha(&client)
+		if err != nil {
+			return "", err
+		}
+	}
+	reqData := url.Values{
+		"username":  {user.Id},
+		"password":  {encodePwd},
+		"captcha":   {captcha},
+		"_eventId":  {"submit"},
+		"cllt":      {"userNameLogin"},
+		"dllt":      {"generalLogin"},
+		"lt":        {"None"},
+		"execution": {doc.Find("#execution").AttrOr("value", "")},
+	}
+	response, err = client.Post(nowUrl, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
+	//body, _ = io.ReadAll(response.Body)
+	//log.Println(string(body))
+	// 统一认证错误处理
+	doc, err = goquery.NewDocumentFromReader(response.Body)
+	if err != nil {
+		return "", utils.ErrorServer
+	}
+	if strings.Contains(doc.Text(), "中南e行APP扫码登录") && response.StatusCode != 200 {
+		switch doc.Find("span#showErrorTip").First().Text() {
+		case "验证码错误":
+			return "", utils.ErrorCaptcha
+		case "您提供的用户名或者密码有误":
+			return "", utils.ErrorIdPwd
+		case "输入多次密码错误账号冻结，5-10分钟自动解冻":
+			return "", utils.ErrorLocked
+		default:
+			return "", utils.ErrorFailLogin
+		}
+	}
+	ClientMap[*user] = client
+	return req.Header.Get("Cookie"), nil
+}
+
+// GetNewsList 获取新闻列表
 func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	cookie, err := UnifiedLogin(user, NewsUnifiedLoginUrl)
 	if err != nil {
@@ -54,7 +153,6 @@ func GetNewsList(user *JwcUser, PageID string) (NewsList, error) {
 	}
 	cookies := strings.Split(cookie, ";")
 	cookie = cookies[2]
-	// beego.Info(cookie)
 	req, _ := http.NewRequest("POST", NewsListUrl, strings.NewReader("params=%7B%22tableName%22%3A%22ZNDX_ZHBG_GGTZ%22%2C%22tjnr%22%3A%22%22%7D&pageSize="+PageID+"&pageNo=20"))
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -141,7 +239,7 @@ func pdfParser(link string) ([]string, error) {
 		if text == "" && i == 0 {
 			fullText = append(fullText[:i], fullText[i+1:]...)
 		}
-		if text == "" && i != 0 && i<len(fullText)-2 {
+		if text == "" && i != 0 && i < len(fullText)-2 {
 			fullText[i-1] += fullText[i+1]
 			fullText = append(fullText[:i], fullText[i+2:]...)
 		}
