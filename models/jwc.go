@@ -519,15 +519,14 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 		}
 	}
 	reqData := url.Values{
-		"username":   {user.Id},
-		"password":   {encodePwd},
-		"captcha":    {captcha},
-		"_eventId":   {"submit"},
-		"rememberMe": {"True"},
-		"cllt":       {"userNameLogin"},
-		"dllt":       {"generalLogin"},
-		"lt":         {"None"},
-		"execution":  {doc.Find("#execution").AttrOr("value", "")},
+		"username":  {user.Id},
+		"password":  {encodePwd},
+		"captcha":   {captcha},
+		"_eventId":  {"submit"},
+		"cllt":      {"userNameLogin"},
+		"dllt":      {"generalLogin"},
+		"lt":        {"None"},
+		"execution": {doc.Find("#execution").AttrOr("value", "")},
 	}
 	response, err = client.Post(JWC_UNIFIED_URL, "application/x-www-form-urlencoded", strings.NewReader(reqData.Encode()))
 	//body, _ = io.ReadAll(response.Body)
