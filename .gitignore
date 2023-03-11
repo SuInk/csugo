@@ -2,6 +2,7 @@
 *.db
 .idea
 *.out
+*.out.*
 *.tmp
 main
 *.exe
