@@ -492,7 +492,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	}
 	client.Jar = jar
 	req, _ := http.NewRequest("GET", JWC_UNIFIED_URL, nil)
-	req.Header.Add("User-Agent", "csulite robot v1.0")
+	req.Header.Set("User-Agent", "csulite robot v1.0")
 	response, err := client.Do(req)
 	//response, err := http.Get(JWC_UNIFIED_URL)
 	if err != nil || response.StatusCode != 200 {
@@ -536,7 +536,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 	if err != nil {
 		return client, utils.ErrorServer
 	}
-	if strings.Contains(doc.Text(), "中南e行APP扫码登录") && response.StatusCode != 200 {
+	if strings.Contains(doc.Text(), "中南大学信息与网络中心") {
 		switch doc.Find("span#showErrorTip").First().Text() {
 		case "您提供的用户名或者密码有误":
 			if captcha == "None" {
@@ -562,6 +562,7 @@ func (this *Jwc) Login(user *JwcUser) (http.Client, error) {
 		return client, nil
 	}
 	// 未知错误
-	err = fmt.Errorf("%d%w", response.StatusCode, utils.ErrorJwc)
+	beego.Info(doc.Text())
+	err = fmt.Errorf("%d%w", response.StatusCode, utils.ErrorUnkown)
 	return client, err
 }
