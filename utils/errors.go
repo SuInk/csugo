@@ -17,7 +17,7 @@ var (
 		驼峰命名新变量, 太懒了, 旧项目混着用, 新项目统一用驼峰
 	*/
 	ErrorUnified          = errors.New("统一认证服务出了点问题，请稍后再试")
-	ErrorFailLogin        = errors.New("统一认证登录失败，请确认您能正常登录my.csu.edu.cn,并关闭只能一个浏览器登录")
+	ErrorFailLogin        = errors.New("感谢您三年来对本小程序的使用与支持，因学校统一认证服务升级，本项目暂无法正常使用，请使用其它同类软件替代。查课表可在应用商店搜索WakeUp课程表\n查成绩/排名可使用教务系统官网https://csujwc.its.csu.edu.cn/\n查空闲教室可使用本科生移动教务https://bkydfw.csu.edu.cn/\n再次感谢！")
 	ErrorIdPwd            = errors.New("您提供的统一认证账号密码错误")
 	ErrorIdPwdWithCaptcha = errors.New("您已触发验证码，提供的统一认证账号密码有误")
 	ErrorLocked           = errors.New("密码错误次数过多，您的统一认证账号已被暂时冻结，请5-10分钟后再试")
