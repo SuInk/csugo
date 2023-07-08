@@ -1,7 +1,7 @@
 # csugo
 中南大学校内查询API，提供教务，校车，招聘查询，基于Beego框架
 
-本项目基于https://github.com/csuhan/csugo 改写
+本项目基于https://github.com/csuhan/csugo 改写 感谢[csuhan](https://github.com/csuhan)学长
 
 ## 如何使用
 
